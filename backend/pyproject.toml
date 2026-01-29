@@ -1,0 +1,86 @@
+[tool.poetry]
+name = "intuitive-care-backend"
+version = "0.1.0"
+description = "Backend - Teste de entrada Intuitive Care"
+authors = ["Pedro Garcia <pedrofsgarcia.pro@gmail.com>"]
+packages = [{include = "api"}, {include = "etl"}, {include = "database"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+requests = "^2.32.5"
+pandas = "^3.0.0"
+pydantic = "^2.12.5"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.14.14"
+mypy = "^1.19.1"
+taskipy = "^1.14.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["venv", "__pycache__"]
+
+[tool.ruff.lint]
+select = [
+    "E",  # Pycodestyle errors
+    "W",  # Pycodestyle warnings
+    "F",  # Pyflakes
+    "I",  # Import order
+    "N",  # Naming conventions
+    "B",  # Bugbear (boas práticas e possíveis bugs)
+    "C4", # Comprehensions
+    "SIM",# Simplifiable code
+    "UP", # Upgrades de código Python (melhorias automáticas)
+]
+ignore = [
+    "F822",  # undefined name in __all__
+    "F704",  # unused awaitable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["pandas.*"]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.bandit]
+exclude_dirs = [".venv", "venv"]
+skips = ["B101"]  # Permite uso de assert
+
+[tool.taskipy.tasks]
+# Parte 1: Download e consolidação de dados ANS
+download = "python -m etl.download"
+consolidate = "python -m etl.consolidate"
+
+# Parte 2: Transformação e validação
+transform = "python -m etl.transform"
+
+# Pipeline completo ETL (Partes 1-2)
+etl = "task download && task consolidate && task transform"
+
+# Parte 4: API
+api = "uvicorn api.main:create_app --factory --reload --host 0.0.0.0 --port 8000"
