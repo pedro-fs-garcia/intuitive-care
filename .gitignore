@@ -54,3 +54,7 @@ frontend/dist/
 # Misc
 .github/
 *.pdf
+*.zip
+
+data/trimestres
+data/operadoras

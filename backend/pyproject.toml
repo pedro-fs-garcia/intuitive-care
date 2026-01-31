@@ -10,6 +10,7 @@ python = "^3.12"
 requests = "^2.32.5"
 pandas = "^3.0.0"
 pydantic = "^2.12.5"
+types-requests = "^2.32.4.20260107"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -72,9 +73,8 @@ exclude_dirs = [".venv", "venv"]
 skips = ["B101"]  # Permite uso de assert
 
 [tool.taskipy.tasks]
-# Parte 1: Download e consolidação de dados ANS
-download = "python -m etl.download"
-consolidate = "python -m etl.consolidate"
+parte_um = "python -m etl.download"
+consolidate = "python -m etl.run_ex_1"
 
 # Parte 2: Transformação e validação
 transform = "python -m etl.transform"

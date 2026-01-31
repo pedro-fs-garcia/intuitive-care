@@ -12,7 +12,7 @@ install:
 # BACKEND - Qualidade de código
 # ============================================
 lint:
-	cd backend && poetry run ruff check .
+	cd backend && poetry run ruff check . --fix
 
 format:
 	cd backend && poetry run ruff format .
