@@ -162,6 +162,18 @@ make etl  # Executa download + consolidate + transform
 
 ### 3. Parte 1 - Integração com API Pública (ANS)
 
+#### 3.0. Obtenção de CNPJ e Razão Social
+
+**Contexto:**
+A especificação da Parte 1.3 exige que o CSV consolidado contenha as colunas `CNPJ`, `RazaoSocial`, `Trimestre`, `Ano` e `Valor Despesas`. No entanto, os arquivos de Demonstrações Contábeis da ANS contêm apenas o código `REG_ANS` (Registro ANS), sem CNPJ ou Razão Social.
+
+**Decisão de Implementação:**
+Como os campos obrigatórios não estão presentes nos arquivos de origem, foi necessário realizar um **join prévio** com o cadastro de operadoras ativas (`Relatorio_cadop.csv`), utilizando `REG_ANS` como chave de ligação.
+
+**Justificativa:**
+- A Parte 2.2 especifica que o join deve ser feito "usando o CNPJ como chave", o que pressupõe que o CSV consolidado da Parte 1 já possua essa coluna.
+- Antecipar a obtenção do CNPJ/RazaoSocial na Parte 1 garante conformidade com a especificação e permite que a Parte 2.2 adicione apenas as colunas complementares (`RegistroANS`, `Modalidade`, `UF`).
+
 #### 3.1. Estratégia de Filtragem de Dados
 
 **Contexto:**
@@ -184,24 +196,41 @@ Para garantir a integridade dos dados e capturar exatamente o que foi solicitado
 **Abordagem Rejeitada:**
 - **Filtragem por variação de saldo (`Saldo Inicial > Saldo Final`):** Descartei essa lógica pois contas de Despesa são de natureza acumulativa ao longo do exercício fiscal, tendendo a apresentar saldo final maior que o inicial (crescimento do custo), ao contrário de contas de Passivo que podem diminuir conforme as obrigações são quitadas.
 
-#### 3.2. Processamento de Arquivos: Incremental vs Em Memória
+#### 3.2. Suporte a Múltiplos Formatos de Arquivo
+
+**Contexto:**
+A especificação menciona que "os arquivos podem ter formatos diferentes (CSV, TXT, XLSX) e estruturas de colunas variadas", exigindo identificação automática.
+
+**Decisão de Implementação:**
+Implementei um sistema de leitura com detecção automática em duas camadas:
+
+1. **Detecção de formato por extensão:** O código identifica `.csv`, `.txt`, `.xlsx` e `.xls` e aplica o parser apropriado.
+
+2. **Detecção de encoding e separador (para CSV/TXT):** Tenta combinações de encodings (`utf-8`, `latin1`, `cp1252`) e separadores (`;`, `,`, `\t`, `|`) até encontrar uma que produza múltiplas colunas.
+
+3. **Normalização de colunas:** Um mapeamento de variantes (`REG_ANS` ↔ `REGISTRO_ANS` ↔ `CD_OPERADORA`, etc.) permite que arquivos com nomenclaturas diferentes sejam processados uniformemente.
+
+**Justificativa:**
+- A detecção em cascata é mais robusta que assumir um formato fixo
+- O fallback de encodings evita falhas silenciosas em arquivos legados
+- A normalização de colunas permite absorver variações sem alterar a lógica de negócio
+
+**Trade-off:**
+Optei por detectar formato pela extensão ao invés de analisar o conteúdo (magic bytes), pois:
+- É mais simples e performático
+- Arquivos da ANS seguem convenções de nomenclatura
+- Magic bytes exigiria dependência adicional (python-magic)
+
+#### 3.3. Processamento de Arquivos: Incremental vs Em Memória
 
 | Decisão               | Escolha                      | Alternativa            | Justificativa                                                                                                    |
 | --------------------- | ---------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Estratégia de leitura | **Processamento incremental** | Carregar tudo em memória | Cada arquivo de trimestre é processado individualmente e concatenado ao resultado. Reduz pico de uso de memória. |
 
 **Detalhes da implementação:**
-- Cada arquivo CSV é lido, filtrado e agregado antes de ser concatenado ao DataFrame final
+- Cada arquivo é lido, filtrado e agregado antes de ser concatenado ao DataFrame final
 - Isso permite processar datasets maiores que a memória disponível
 - Trade-off: ligeiramente mais lento que processar tudo em memória, mas mais seguro para volumes desconhecidos
-
-#### 3.3. Tratamento de Encoding
-
-| Decisão  | Escolha                      | Justificativa                                                                                    |
-| -------- | ---------------------------- | ------------------------------------------------------------------------------------------------ |
-| Encoding | **UTF-8 com fallback Latin1** | Arquivos da ANS podem vir em diferentes encodings. Tentativa automática evita falhas silenciosas. |
-
-**Implementação:** O código tenta primeiro UTF-8 (padrão moderno) e, em caso de `UnicodeDecodeError`, faz fallback para Latin1 (ISO-8859-1), comum em sistemas legados brasileiros.
 
 #### 3.4. Segurança: Proteção contra Zip Slip
 
@@ -220,9 +249,9 @@ Para garantir a integridade dos dados e capturar exatamente o que foi solicitado
 
 #### 3.6. Join com Dados Cadastrais (Operadoras)
 
-| Decisão      | Escolha       | Alternativa   | Justificativa                                                                                    |
-| ------------ | ------------- | ------------- | ------------------------------------------------------------------------------------------------ |
-| Tipo de join | **LEFT JOIN** | INNER JOIN    | Mantém todas as despesas mesmo se a operadora não estiver no cadastro ativo (pode ter sido inativada). |
+| Decisão      | Escolha                      | Alternativa        | Justificativa                                                                                    |
+| ------------ | ---------------------------- | ------------------ | ------------------------------------------------------------------------------------------------ |
+| Tipo de join | **LEFT JOIN + filtro**       | INNER JOIN direto  | LEFT JOIN permite identificar e logar registros sem match antes de descartá-los.                 |
 
 #### 3.7. Tratamento de Inconsistências
 
@@ -230,7 +259,17 @@ Para garantir a integridade dos dados e capturar exatamente o que foi solicitado
 | ------------------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
 | Valores não numéricos           | `pd.to_numeric(errors='coerce')` → 0            | Converte para NaN e substitui por 0, evitando perda de registros |
 | Datas inválidas                 | `pd.to_datetime(errors='coerce')` → descartados | Registros sem data válida não podem ser atribuídos a um trimestre |
-| CNPJs sem match no cadastro     | Mantidos com campos cadastrais vazios           | LEFT JOIN preserva o dado financeiro mesmo sem enriquecimento    |
+| REG_ANS sem match no cadastro   | **Removidos com log**                           | Registros sem CNPJ/RazaoSocial não atendem à especificação do CSV |
+
+**Decisão sobre registros sem cadastro:**
+
+Optei por **remover** registros de despesas cujo `REG_ANS` não existe no cadastro de operadoras ativas, pelos seguintes motivos:
+
+1. A especificação exige que o CSV contenha `CNPJ` e `RazaoSocial` — linhas vazias nesses campos são tecnicamente inválidas
+2. Provavelmente são operadoras inativadas/canceladas, cujos dados históricos não agregam valor à análise
+3. Manter dados sem identificação dificulta auditorias e análises downstream
+
+O código loga quantos registros foram removidos para rastreabilidade.
 
 ---
 
