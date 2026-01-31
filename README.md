@@ -179,22 +179,38 @@ Como os campos obrigatórios não estão presentes nos arquivos de origem, foi n
 **Contexto:**
 A especificação do teste solicitava a identificação e processamento exclusivo do *arquivo* contendo "Despesas com Eventos/Sinistros". No entanto, ao analisar os dados baixados do FTP da ANS (estrutura atual de Demonstrações Contábeis), constatei uma divergência: os dados são entregues em um arquivo CSV monolítico ("Balancete"), contendo todas as classes contábeis (Ativo, Passivo, Receitas e Despesas) consolidadas.
 
-**Decisão de Implementação:**
-Como não era possível selecionar um arquivo específico, implementei uma **estratégia de filtragem lógica de linhas** baseada no Plano de Contas Padrão da ANS.
+**Problema Identificado:**
+Além da ausência de separação por arquivo, o Plano de Contas da ANS segue uma estrutura **hierárquica**. Contas de nível superior (ex: conta `4`) já incluem os valores das subcontas. Somar todas as linhas que contêm "EVENTO" ou "SINISTRO" resultaria em **duplicidade** (*double-counting*), inflando artificialmente os totais.
 
-**Justificativa da Lógica de Filtro:**
-Para garantir a integridade dos dados e capturar exatamente o que foi solicitado ("Despesas com Eventos"), utilizei um filtro composto:
+**Decisão de Implementação:**
+Como não era possível selecionar um arquivo específico, implementei uma **estratégia de filtragem lógica de linhas** baseada no Plano de Contas Padrão da ANS, com filtro de dupla entrada:
 
 1. **Filtro por Classe Contábil (`CD_CONTA_CONTABIL` iniciado em '4'):**
    - Optei por filtrar estritamente as contas iniciadas pelo dígito **4**, que representam **Despesas** no padrão contábil, de acordo com Resolução Normativa - RN nº 528 de 29/04/2022 da ANS, disponível em [link](https://www.ans.gov.br/component/legislacao/?view=legislacao&task=textoLei&format=raw&id=NDIzNg%3D%3D&ref=blog.contmatic.com.br).
    - *Por que:* Isso evita a ambiguidade com contas de "Provisão de Eventos" (iniciadas em **2**), que representam Passivo (obrigações/dívidas) e não o custo assistencial incorrido no período.
 
-2. **Filtro Semântico (`DESCRICAO` contendo 'EVENTO' ou 'SINISTRO'):**
-   - Refinei a busca para capturar apenas as despesas relacionadas à operação assistencial, excluindo despesas administrativas ou comerciais.
-   - A inclusão de ambos os termos garante a captura de contas como "EVENTOS INDENIZÁVEIS" e "SINISTROS A LIQUIDAR".
+2. **Filtro por Descrição Exata (`DESCRICAO == "DESPESAS COM EVENTOS / SINISTROS"`):**
+   - Implementei filtro por **igualdade exata** da descrição após normalização (remoção de espaços e conversão para maiúsculas).
+   - Essa abordagem garante a captura apenas dos valores "folha" da hierarquia contábil, refletindo o gasto real sem inflar os totais.
+   - Optei por igualdade exata em vez de busca parcial (`LIKE '%EVENTO%'`) para evitar a captura acidental de contas agregadoras ou títulos de grupos que possuam nomes similares.
 
-**Abordagem Rejeitada:**
-- **Filtragem por variação de saldo (`Saldo Inicial > Saldo Final`):** Descartei essa lógica pois contas de Despesa são de natureza acumulativa ao longo do exercício fiscal, tendendo a apresentar saldo final maior que o inicial (crescimento do custo), ao contrário de contas de Passivo que podem diminuir conforme as obrigações são quitadas.
+**Abordagens Rejeitadas:**
+- **Filtragem por variação de saldo (`Saldo Inicial > Saldo Final`):** Descartei essa lógica pois contas de Despesa são de natureza acumulativa ao longo do exercício fiscal, tendendo a apresentar saldo final maior que o inicial (crescimento do custo).
+- **Filtragem por número de dígitos (>= 9):** Embora funcione, depende da estrutura do plano de contas permanecer estável. O filtro por descrição exata é mais explícito quanto à intenção.
+
+#### 3.1.1. Seleção de Campo Financeiro
+
+**Decisão:** Utilizei o campo `VL_SALDO_FINAL` como base para a coluna `ValorDespesas`.
+
+**Fundamentação:** Nas Demonstrações Contábeis da ANS, as contas de despesas (Grupo 4) registram o saldo acumulado no período. O `VL_SALDO_FINAL` representa o total de eventos e sinistros reconhecidos pela operadora até a data do fechamento do trimestre, sendo o indicador fiel do impacto financeiro no período analisado. O uso do saldo final isolado evita erros de interpretação sobre a competência dos lançamentos contábeis.
+
+#### 3.1.2. Consolidação e Tratamento de Dados Acumulados (YTD)
+**Decisão:** Preservação dos Valores Originais (Snapshot). Optei por manter no CSV consolidado o valor bruto do VL_SALDO_FINAL para cada trimestre, sem realizar a desacumulação (subtração do trimestre anterior) nesta etapa.
+**Contexto:** O Plano de Contas Padrão da ANS e as normas do DIOPS, as contas de despesa (Grupo 4) registram valores de forma acumulada ao longo do ano civil (Year-to-Date - YTD).
+**Justificativa:** 
+1. Integridade e Rastreabilidade: Manter o valor original garante que o dado consolidado seja fiel à "Fonte da Verdade" (Portal Brasileiro de Dados Abertos da ANS), facilitando auditorias e conferências manuais. 
+2. Robustez do Pipeline: A extração torna-se mais resiliente a falhas pontuais de download. Se um trimestre intermediário estiver ausente ou corrompido, os valores dos trimestres subsequentes permanecem corretos em relação ao acumulado do ano. 
+3. Separação de Preocupações (Separation of Concerns): A lógica de "desacumulação" para cálculo de médias e crescimento percentual foi delegada para as queries analíticas de SQL (Teste 3), onde o uso de funções de janela (Window Functions) permite manipular os saldos de forma mais eficiente e performática.
 
 #### 3.2. Suporte a Múltiplos Formatos de Arquivo
 
@@ -255,11 +271,20 @@ Optei por detectar formato pela extensão ao invés de analisar o conteúdo (mag
 
 #### 3.7. Tratamento de Inconsistências
 
-| Inconsistência                  | Tratamento                                      | Justificativa                                                   |
-| ------------------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
-| Valores não numéricos           | `pd.to_numeric(errors='coerce')` → 0            | Converte para NaN e substitui por 0, evitando perda de registros |
-| Datas inválidas                 | `pd.to_datetime(errors='coerce')` → descartados | Registros sem data válida não podem ser atribuídos a um trimestre |
-| REG_ANS sem match no cadastro   | **Removidos com log**                           | Registros sem CNPJ/RazaoSocial não atendem à especificação do CSV |
+| Inconsistência                              | Tratamento                                      | Justificativa                                                                        |
+| ------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| CNPJs duplicados (razões sociais diferentes)| **Mantido primeiro registro**                   | Cadastro pode conter histórico; primeiro registro representa dados mais atuais       |
+| Valores zerados                             | **Mantidos**                                    | Zero indica ausência de eventos no período — dado válido para análise comparativa    |
+| Valores negativos                           | **Mantidos**                                    | Podem representar estornos ou correções contábeis legítimas                          |
+| Valores não numéricos                       | `pd.to_numeric(errors='coerce')` → 0            | Converte para NaN e substitui por 0, evitando perda de registros                     |
+| Datas inválidas                             | `pd.to_datetime(errors='coerce')` → descartados | Registros sem data válida não podem ser atribuídos a um trimestre                    |
+| REG_ANS sem match no cadastro               | **Removidos com log**                           | Registros sem CNPJ/RazaoSocial não atendem à especificação do CSV                    |
+
+**Decisão sobre CNPJs duplicados:**
+
+Optei por remover duplicatas do cadastro de operadoras **antes** do join, mantendo o primeiro registro de cada `REG_ANS`.
+
+*Abordagem rejeitada:* Permitir que o join gere múltiplas linhas e depois consolidar com `groupby`. Essa abordagem foi descartada porque **inflaria artificialmente os valores de despesas**. Exemplo: se um `REG_ANS` tem 2 registros no cadastro, o join multiplicaria a linha de despesa, e um `groupby sum` somaria o mesmo valor duas vezes.
 
 **Decisão sobre registros sem cadastro:**
 

@@ -103,9 +103,10 @@ class DespesasProcessor:
 
         print("Filtrando por despesas de evento/sinistro...")
         df["CD_CONTA_CONTABIL"] = df["CD_CONTA_CONTABIL"].astype(str)
+        df["DESCRICAO"] = df["DESCRICAO"].str.strip().str.upper()
         df_despesas = df[
             (df["CD_CONTA_CONTABIL"].str.startswith("4"))
-            & (df["DESCRICAO"].str.contains("EVENTO|SINISTRO", case=False, na=False))
+            & (df["DESCRICAO"] == "DESPESAS COM EVENTOS / SINISTROS")
         ].copy()
 
         df_despesas["VL_SALDO_FINAL"] = (
@@ -137,6 +138,7 @@ class DespesasProcessor:
         df_despesas["REG_ANS"] = df_despesas["REG_ANS"].astype(str)
 
         df_operadoras = df_operadoras.rename(columns={"REGISTRO_OPERADORA": "REG_ANS"})
+        df_operadoras = df_operadoras.drop_duplicates(subset=["REG_ANS"], keep="first")
 
         df_final = df_despesas.merge(
             df_operadoras,
@@ -181,25 +183,27 @@ def consolidate_despesas(trimestres_dir: Path, operadoras_file: Path) -> pd.Data
 
     for pattern in supported_patterns:
         data_files.extend(trimestres_dir.glob(pattern))
+    
+    data_files.sort()
 
     if not data_files:
         raise FileNotFoundError(f"Nenhum arquivo de dados encontrado em {trimestres_dir}")
 
     print(f"Encontrados {len(data_files)} arquivos para processar")
 
-    consolidated_df = pd.DataFrame()
+    df_consolidate = pd.DataFrame()
     processed = 0
     skipped = 0
 
     for data_file in data_files:
         try:
             processor = DespesasProcessor(data_file, operadoras_file)
-            quarter_expenses = processor.run()
-            consolidated_df = pd.concat([consolidated_df, quarter_expenses], ignore_index=True)
+            trimestre = processor.run()
+            df_consolidate = pd.concat([df_consolidate, trimestre], ignore_index=True)
             processed += 1
         except ValueError as e:
             print(f"Arquivo ignorado ({data_file.name}): {e}")
             skipped += 1
 
     print(f"Processamento concluído: {processed} arquivos, {skipped} ignorados")
-    return consolidated_df
+    return df_consolidate
