@@ -1,34 +1,22 @@
-from pathlib import Path
+from .clients import ANSApiClient, LocalStorageClient
+from .consolidator import DespesasConsolidator
+from .constants import constant_paths
+from .libs import ZipHandler, column_normalizer
 
-from .ans_downloader import ANSDownloader
-from .file_filter import consolidate_despesas
-from .zip_extractor import ZipHandler
 
-
-def main() -> None:
-    base_dir = Path(__file__).resolve().parent
-    root_dir = base_dir.parents[1]
-    data_dir = root_dir / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-
+def run_ex1() -> None:
     zip_handler = ZipHandler()
-    downloader = ANSDownloader(zip_handler, data_dir)
+    local_storage_client = LocalStorageClient(zip_handler)
+    ans_api_client = ANSApiClient(zip_handler, local_storage_client)
 
-    trimestres_dir = downloader.trimestres_output_dir
-    operadoras_dir = downloader.operadoras_output_dir
+    ans_api_client.run()
 
-    downloader.run()
-    operadoras_file = operadoras_dir / "operadoras.csv"
-
-    consolidated_expenses = consolidate_despesas(trimestres_dir, operadoras_file)
-
-    zip_handler.export_df_to_zip(
-        consolidated_expenses,
-        root_dir / "output",
-        "consolidado_despesas.zip",
-        "consolidado_despesas.csv",
+    consolidator = DespesasConsolidator(local_storage_client, column_normalizer)
+    df = consolidator.run_batch()
+    local_storage_client.save_zip_csv_from_df(
+        df, constant_paths.output_dir, "consolidado_despesas.zip", "consolidado_despesas.csv"
     )
 
 
 if __name__ == "__main__":
-    main()
+    run_ex1()

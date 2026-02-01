@@ -78,7 +78,7 @@ parte_um = "python -m etl.download"
 consolidate = "python -m etl.run_ex_1"
 
 # Parte 2: Transformação e validação
-transform = "python -m etl.transform"
+aggregate = "python -m etl.run_ex_2"
 
 # Pipeline completo ETL (Partes 1-2)
 etl = "task download && task consolidate && task transform"

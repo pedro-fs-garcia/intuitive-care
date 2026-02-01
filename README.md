@@ -25,8 +25,8 @@ Resolução do teste técnico para estágio na Intuitive Care.
 
 Este projeto implementa as 4 partes do teste:
 
-| Parte | Descrição                          | Status       |
-| ----- | ---------------------------------- | ------------ |
+| Parte | Descrição                          | Status      |
+| ----- | ---------------------------------- | ----------- |
 | 1     | Integração com API Pública (ANS)   | ✅ Concluído |
 | 2     | Transformação e Validação de Dados | 🔲 Pendente  |
 | 3     | Banco de Dados e Análise (SQL)     | 🔲 Pendente  |
@@ -239,8 +239,8 @@ Optei por detectar formato pela extensão ao invés de analisar o conteúdo (mag
 
 #### 3.3. Processamento de Arquivos: Incremental vs Em Memória
 
-| Decisão               | Escolha                      | Alternativa            | Justificativa                                                                                                    |
-| --------------------- | ---------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Decisão               | Escolha                       | Alternativa              | Justificativa                                                                                                    |
+| --------------------- | ----------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | Estratégia de leitura | **Processamento incremental** | Carregar tudo em memória | Cada arquivo de trimestre é processado individualmente e concatenado ao resultado. Reduz pico de uso de memória. |
 
 **Detalhes da implementação:**
@@ -250,35 +250,35 @@ Optei por detectar formato pela extensão ao invés de analisar o conteúdo (mag
 
 #### 3.4. Segurança: Proteção contra Zip Slip
 
-| Decisão   | Escolha                           | Justificativa                                                                                  |
-| --------- | --------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Extração  | **Validação de path traversal**    | Previne ataques de Zip Slip onde arquivos maliciosos tentam escapar do diretório de extração. |
+| Decisão  | Escolha                         | Justificativa                                                                                 |
+| -------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
+| Extração | **Validação de path traversal** | Previne ataques de Zip Slip onde arquivos maliciosos tentam escapar do diretório de extração. |
 
 **Implementação:** Antes de extrair, cada membro do ZIP é validado para garantir que o caminho final está dentro do diretório de destino (`_safe_extract`).
 
 #### 3.5. Navegação no FTP da ANS
 
-| Decisão           | Escolha                    | Alternativa       | Justificativa                                                                                  |
-| ----------------- | -------------------------- | ----------------- | ---------------------------------------------------------------------------------------------- |
+| Decisão           | Escolha                    | Alternativa       | Justificativa                                                                                     |
+| ----------------- | -------------------------- | ----------------- | ------------------------------------------------------------------------------------------------- |
 | Parsing de índice | **Regex em HTML**          | Biblioteca FTP    | O endpoint da ANS retorna HTML, não é um FTP real. Regex simples é suficiente para extrair links. |
-| Ordem de download | **Mais recentes primeiro** | Ordem cronológica | `reversed(years)` e `reversed(files)` garantem que os 3 trimestres mais recentes sejam baixados. |
+| Ordem de download | **Mais recentes primeiro** | Ordem cronológica | `reversed(years)` e `reversed(files)` garantem que os 3 trimestres mais recentes sejam baixados.  |
 
 #### 3.6. Join com Dados Cadastrais (Operadoras)
 
-| Decisão      | Escolha                      | Alternativa        | Justificativa                                                                                    |
-| ------------ | ---------------------------- | ------------------ | ------------------------------------------------------------------------------------------------ |
-| Tipo de join | **LEFT JOIN + filtro**       | INNER JOIN direto  | LEFT JOIN permite identificar e logar registros sem match antes de descartá-los.                 |
+| Decisão      | Escolha                | Alternativa       | Justificativa                                                                    |
+| ------------ | ---------------------- | ----------------- | -------------------------------------------------------------------------------- |
+| Tipo de join | **LEFT JOIN + filtro** | INNER JOIN direto | LEFT JOIN permite identificar e logar registros sem match antes de descartá-los. |
 
 #### 3.7. Tratamento de Inconsistências
 
-| Inconsistência                              | Tratamento                                      | Justificativa                                                                        |
-| ------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
-| CNPJs duplicados (razões sociais diferentes)| **Mantido primeiro registro**                   | Cadastro pode conter histórico; primeiro registro representa dados mais atuais       |
-| Valores zerados                             | **Mantidos**                                    | Zero indica ausência de eventos no período — dado válido para análise comparativa    |
-| Valores negativos                           | **Mantidos**                                    | Podem representar estornos ou correções contábeis legítimas                          |
-| Valores não numéricos                       | `pd.to_numeric(errors='coerce')` → 0            | Converte para NaN e substitui por 0, evitando perda de registros                     |
-| Datas inválidas                             | `pd.to_datetime(errors='coerce')` → descartados | Registros sem data válida não podem ser atribuídos a um trimestre                    |
-| REG_ANS sem match no cadastro               | **Removidos com log**                           | Registros sem CNPJ/RazaoSocial não atendem à especificação do CSV                    |
+| Inconsistência                               | Tratamento                                      | Justificativa                                                                     |
+| -------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| CNPJs duplicados (razões sociais diferentes) | **Mantido primeiro registro**                   | Cadastro pode conter histórico; primeiro registro representa dados mais atuais    |
+| Valores zerados                              | **Mantidos**                                    | Zero indica ausência de eventos no período — dado válido para análise comparativa |
+| Valores negativos                            | **Mantidos**                                    | Podem representar estornos ou correções contábeis legítimas                       |
+| Valores não numéricos                        | `pd.to_numeric(errors='coerce')` → 0            | Converte para NaN e substitui por 0, evitando perda de registros                  |
+| Datas inválidas                              | `pd.to_datetime(errors='coerce')` → descartados | Registros sem data válida não podem ser atribuídos a um trimestre                 |
+| REG_ANS sem match no cadastro                | **Removidos com log**                           | Registros sem CNPJ/RazaoSocial não atendem à especificação do CSV                 |
 
 **Decisão sobre CNPJs duplicados:**
 
@@ -295,6 +295,79 @@ Optei por **remover** registros de despesas cujo `REG_ANS` não existe no cadast
 3. Manter dados sem identificação dificulta auditorias e análises downstream
 
 O código loga quantos registros foram removidos para rastreabilidade.
+
+---
+
+### 4. Parte 2 - Transformação e Validação de Dados
+
+#### 4.1. Validação de Dados (Item 2.1)
+
+**Validações implementadas:**
+
+1. **CNPJ:** Validação completa com verificação dos dígitos verificadores (módulo 11)
+2. **ValorDespesas:** Conversão para numérico e filtro de valores > 0
+3. **RazaoSocial:** Rejeição de valores nulos ou strings vazias/apenas espaços
+
+**Trade-off: Tratamento de CNPJs inválidos**
+
+| Estratégia           | Prós                              | Contras                                                     |
+| -------------------- | --------------------------------- | ----------------------------------------------------------- |
+| Descartar registro   | Garante integridade dos dados     | Perde informação                                            |
+| Marcar como suspeito | Preserva dado para análise manual | Polui agregações                                            |
+| Tentar corrigir      | Recupera dados                    | Alto risco de erro; CNPJ não é corrigível sem fonte externa |
+
+**Escolha:** Descartar registros com CNPJ inválido.
+
+**Justificativa:** CNPJ é a chave de join com os dados cadastrais (item 2.2). Manter registros com CNPJ inválido causaria:
+- Falha no enriquecimento (sem match possível)
+- Distorção nas agregações por operadora
+
+Como não há forma confiável de corrigir um CNPJ inválido sem acesso a fonte externa, descartar é a abordagem mais segura para garantir qualidade nas etapas seguintes.
+
+#### 4.2. Enriquecimento de Dados (Item 2.2)
+
+**Objetivo:** Realizar join entre o CSV consolidado e os dados cadastrais das operadoras, adicionando as colunas `RegistroANS`, `Modalidade` e `UF`.
+
+**Trade-off: Estratégia de Processamento do Join**
+
+| Estratégia | Prós | Contras |
+|------------|------|---------|
+| Pandas em memória | Simples, rápido para datasets pequenos/médios | Limitado pela RAM |
+| Processamento em chunks | Escala para dados maiores | Mais complexo; join parcial pode gerar inconsistências |
+| Dask/Polars | Paralelização, escala bem | Overhead de setup, dependência extra |
+
+**Escolha:** Pandas em memória (`pd.merge`).
+
+**Justificativa:** O volume de dados da ANS (~1.5k operadoras ativas × 3 trimestres) cabe confortavelmente em memória. O arquivo consolidado tem ~50MB. Usar chunks ou Dask seria overengineering para este volume e adicionaria complexidade desnecessária.
+
+**Trade-off: Tipo de Join**
+
+| Estratégia | Prós | Contras |
+|------------|------|---------|
+| INNER JOIN | Garante que todos os registros tenham dados completos | Perde registros sem match |
+| LEFT JOIN + filtro | Permite logar/analisar registros sem match antes de descartar | Mais verboso |
+
+**Escolha:** INNER JOIN.
+
+**Justificativa:** A especificação exige que o CSV final contenha `RegistroANS`, `Modalidade` e `UF`. Registros sem match no cadastro não podem atender a esse requisito. O INNER JOIN descarta esses registros diretamente, simplificando o código.
+
+**Tratamento de Registros Duplicados no Cadastro**
+
+O cadastro de operadoras pode conter duplicatas por duas razões:
+- Mesmo `REG_ANS` com dados diferentes (alterações cadastrais)
+- Mesmo `CNPJ` para `REG_ANS` diferentes (operadoras que mudaram de registro)
+
+| Inconsistência | Tratamento | Justificativa |
+|----------------|------------|---------------|
+| REG_ANS duplicado | Mantém primeiro registro | Primeiro = mais recente (ordenado por data) |
+| CNPJ duplicado | Mantém primeiro registro | Evita multiplicação de linhas no join |
+
+**Implementação:**
+1. Ordena cadastro por `Data_Registro_ANS` decrescente antes de salvar
+2. Aplica `drop_duplicates(subset=["REG_ANS"], keep="first")`
+3. Aplica `drop_duplicates(subset=["CNPJ"], keep="first")`
+
+Essa ordem garante que, em caso de conflito, o registro mais recente seja preservado.
 
 ---
 

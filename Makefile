@@ -20,6 +20,9 @@ typecheck:
 consolidate:
 	cd backend && poetry run task consolidate
 
+aggregate:
+	cd backend && poetry run task aggregate
+
 
 # LIMPEZA
 clean:
