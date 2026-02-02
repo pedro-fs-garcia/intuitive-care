@@ -17,6 +17,8 @@ Resolução do teste técnico para estágio na Intuitive Care.
   - [1. Linguagem e Ferramentas](#1-linguagem-e-ferramentas)
   - [2. Estrutura do Projeto](#2-estrutura-do-projeto)
   - [3. Parte 1 - Integração com API Pública (ANS)](#3-parte-1---integração-com-api-pública-ans)
+  - [4. Parte 2 - Transformação e Validação de Dados](#4-parte-2---transformação-e-validação-de-dados)
+  - [5. Parte 3 - Banco de Dados e Análise (SQL)](#5-parte-3---banco-de-dados-e-análise-sql)
 - [Comandos Disponíveis](#comandos-disponíveis)
 
 ---
@@ -28,8 +30,8 @@ Este projeto implementa as 4 partes do teste:
 | Parte | Descrição                          | Status      |
 | ----- | ---------------------------------- | ----------- |
 | 1     | Integração com API Pública (ANS)   | ✅ Concluído |
-| 2     | Transformação e Validação de Dados | 🔲 Pendente  |
-| 3     | Banco de Dados e Análise (SQL)     | 🔲 Pendente  |
+| 2     | Transformação e Validação de Dados | ✅ Concluído |
+| 3     | Banco de Dados e Análise (SQL)     | ✅ Concluído |
 | 4     | API REST + Interface Web (Vue.js)  | 🔲 Pendente  |
 
 ---
@@ -112,10 +114,24 @@ make transform
 
 ```bash
 # Scripts SQL estão em backend/sql/
-# Execute na ordem:
-# 1. backend/sql/01_ddl.sql       - Criação das tabelas
-# 2. backend/sql/02_import.sql    - Importação dos CSVs
-# 3. backend/sql/03_queries.sql   - Queries analíticas
+# Execute na ordem com psql:
+
+# 1. Criar estrutura das tabelas
+psql -d <database> -f backend/sql/db_schema.sql
+
+# 2. Importar dados dos CSVs (ajuste os paths no início do arquivo)
+psql -d <database> -f backend/sql/load_data.sql
+
+# 3. Executar queries analíticas
+psql -d <database> -f backend/sql/queries.sql
+```
+
+**Nota:** Antes de executar `load_data.sql`, edite as variáveis no início do arquivo para apontar para os caminhos corretos dos CSVs:
+
+```sql
+\set path_operadoras '/caminho/para/operadoras.csv'
+\set path_consolidado '/caminho/para/consolidado_despesas.csv'
+\set path_agregado '/caminho/para/despesas_agregadas.csv'
 ```
 
 ### Parte 4 - API e Frontend
@@ -421,6 +437,203 @@ Quando uma operadora/UF possui dados de apenas 1 trimestre, o desvio padrão é 
 **Justificativa:** Embora o item 2.3 foque em `RazaoSocial` e `UF`, a manutenção dessas chaves e atributos evita o reprocessamento de joins nas etapas de Banco de Dados e API, garantindo a integridade referencial entre as tabelas.
 
 **Praticidade:** Segui o princípio de preparar os dados para o consumo final (Dashboard), onde filtros por `Modalidade` e buscas por `CNPJ` são requisitos funcionais esperados.
+
+---
+
+### 5. Parte 3 - Banco de Dados e Análise (SQL)
+
+Os scripts SQL estão organizados em `backend/sql/`:
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `db_schema.sql` | DDL - Criação das tabelas e índices |
+| `load_data.sql` | Importação dos CSVs com tratamento de inconsistências |
+| `queries.sql` | Queries analíticas (itens 3.4.1, 3.4.2, 3.4.3) |
+
+#### 5.1. Estrutura das Tabelas (Item 3.2)
+
+##### Trade-off: Normalização
+
+| Estratégia | Prós | Contras |
+|------------|------|---------|
+| **Opção A: Desnormalizada** | Queries simples, menos JOINs | Redundância de dados, anomalias de atualização |
+| **Opção B: Normalizada** | Sem redundância, integridade referencial | Queries mais complexas com JOINs |
+
+**Escolha:** Tabelas normalizadas (Opção B).
+
+**Justificativa:**
+1. **Integridade referencial:** A tabela `operadoras` é a fonte única de verdade para dados cadastrais. Alterações (ex: razão social) são refletidas automaticamente em todas as queries.
+2. **Volume de dados:** Com ~1.500 operadoras e ~4.500 registros de despesas (3 trimestres), o overhead de JOINs é negligível.
+3. **Frequência de atualizações:** Dados cadastrais podem mudar (operadora muda de nome, UF). Normalização evita inconsistências.
+4. **Queries analíticas:** As queries do item 3.4 naturalmente requerem agregações que se beneficiam da estrutura normalizada.
+
+**Estrutura implementada:**
+
+```
+operadoras (1) ←──┬──→ (N) despesas_consolidadas
+                  └──→ (N) despesas_agregadas
+```
+
+##### Trade-off: Tipos de Dados
+
+| Campo | Escolha | Alternativas | Justificativa |
+|-------|---------|--------------|---------------|
+| Valores monetários | `DECIMAL(18,2)` | `FLOAT`, `INTEGER` (centavos) | DECIMAL garante precisão exata para operações financeiras. FLOAT introduz erros de arredondamento. INTEGER (centavos) exigiria conversões constantes. |
+| Trimestre/Ano | `INT` | `DATE`, `VARCHAR` | INT é mais eficiente para agregações e comparações. Trimestre é um valor discreto (1-4), não uma data completa. |
+| UF | `CHAR(2)` com CHECK | `VARCHAR`, `ENUM` | CHAR(2) é fixo e eficiente. CHECK constraint com lista explícita de UFs válidas garante integridade sem overhead de tabela auxiliar. |
+| CNPJ | `VARCHAR(14)` | `BIGINT`, `CHAR(14)` | VARCHAR acomoda CNPJs com/sem formatação. Armazenamos apenas dígitos (sem pontuação) para facilitar comparações. |
+
+**Decisão sobre DOMAIN:**
+
+Criei um `DOMAIN uf_brasil` com constraint CHECK para validar UFs no nível do banco. Isso garante que dados inválidos sejam rejeitados na importação, não apenas filtrados.
+
+```sql
+CREATE DOMAIN uf_brasil AS CHAR(2)
+CHECK (VALUE IN ('AC','AL','AP',...,'TO'));
+```
+
+##### Índices
+
+| Tabela | Índice | Justificativa |
+|--------|--------|---------------|
+| `operadoras` | `(razao_social)` | Busca textual por nome da operadora (item 4.3) |
+| `despesas_consolidadas` | `(operadora_id, ano, trimestre)` | Queries analíticas filtram/agrupam por esses campos |
+
+**Nota:** Índice em `cnpj` já existe implicitamente via `UNIQUE` constraint.
+
+#### 5.2. Importação de Dados (Item 3.3)
+
+**Estratégia:** Uso de tabelas de staging (temporárias) para carregar dados brutos antes de transformar e inserir nas tabelas finais.
+
+**Justificativa:**
+1. Permite validar e transformar dados em SQL antes da inserção
+2. Dados rejeitados não poluem as tabelas finais
+3. Facilita debug e auditoria (pode-se inspecionar staging antes de inserir)
+
+##### Tratamento de Inconsistências
+
+| Inconsistência | Tratamento | Justificativa |
+|----------------|------------|---------------|
+| **NULL em campos obrigatórios** | Registro rejeitado (`WHERE cnpj IS NOT NULL AND razao_social IS NOT NULL`) | Dados incompletos não atendem requisitos mínimos de integridade |
+| **Strings vazias** | Rejeitadas (`TRIM(cnpj) <> ''`) | String vazia é funcionalmente equivalente a NULL para campos obrigatórios |
+| **Strings em campos numéricos** | Conversão com fallback (`CAST(REPLACE(...) AS DECIMAL)`) | Formato brasileiro (1.234,56) é convertido para padrão SQL (1234.56) |
+| **CNPJ com formatação** | Limpeza via regex (`REGEXP_REPLACE(cnpj, '[^0-9]', '', 'g')`) | Remove pontos, barras e hífens, mantendo apenas dígitos |
+| **UF inválida** | Registro rejeitado (CHECK constraint) | Apenas UFs brasileiras válidas são aceitas |
+| **Trimestre fora de range** | Validação regex (`trimestre ~ '^[1-4]$'`) | Trimestre deve ser 1, 2, 3 ou 4 |
+| **Ano inválido** | Validação regex (`ano ~ '^20[0-9]{2}$'`) | Aceita apenas anos no formato 20XX |
+| **Valores negativos/zero** | Rejeitados para despesas (`valor > 0`) | Despesas devem ser positivas; zeros indicam ausência de dado relevante |
+
+**Decisão sobre registros sem match:**
+
+Na importação de `despesas_consolidadas` e `despesas_agregadas`, uso `INNER JOIN` com a tabela `operadoras`. Registros cujo CNPJ não existe em `operadoras` são automaticamente descartados.
+
+**Justificativa:** A integridade referencial é garantida pela FK. Tentar inserir registros órfãos causaria erro. O INNER JOIN filtra preventivamente.
+
+**Feedback ao usuário:**
+
+Cada bloco de importação inclui um `RAISE NOTICE` reportando quantos registros foram lidos vs. inseridos, permitindo identificar taxa de rejeição.
+
+#### 5.3. Queries Analíticas (Item 3.4)
+
+##### Query 1: Top 5 Operadoras com Maior Crescimento Percentual
+
+**Requisito:** Identificar operadoras com maior crescimento de despesas entre o primeiro e último trimestre.
+
+**Desafio:** Operadoras podem não ter dados em todos os trimestres.
+
+| Estratégia | Prós | Contras |
+|------------|------|---------|
+| Excluir operadoras incompletas | Comparação justa entre extremos | Perde operadoras que entraram/saíram do mercado |
+| Usar trimestre mais próximo disponível | Inclui mais operadoras | Distorce comparação (períodos diferentes) |
+| Interpolar valores faltantes | Mantém todas as operadoras | Introduz dados artificiais |
+
+**Escolha:** Excluir operadoras que não possuem dados em ambos os extremos (primeiro E último trimestre).
+
+**Justificativa:**
+1. Calcular crescimento percentual exige dois pontos de referência válidos
+2. Usar trimestres diferentes (ex: T1 vs T2 para uma operadora, T1 vs T3 para outra) tornaria a comparação injusta
+3. Interpolar valores seria estatisticamente questionável para um teste que pede "crescimento real"
+
+**Implementação:**
+
+```sql
+-- Identifica dinamicamente primeiro/último período
+WITH periodo AS (
+    SELECT MIN(ano * 10 + trimestre) AS primeiro_periodo,
+           MAX(ano * 10 + trimestre) AS ultimo_periodo
+    FROM despesas_consolidadas
+),
+-- INNER JOIN garante que só operadoras com dados em AMBOS os extremos são consideradas
+...
+FROM despesas_primeiro dp
+INNER JOIN despesas_ultimo du ON dp.operadora_id = du.operadora_id
+```
+
+##### Query 2: Distribuição de Despesas por UF
+
+**Requisito:** Top 5 estados com maiores despesas totais.
+
+**Desafio adicional:** Calcular média de despesas por operadora em cada UF.
+
+**Implementação:**
+
+```sql
+SELECT
+    o.uf,
+    COUNT(DISTINCT o.id) AS qtd_operadoras,
+    SUM(dc.valor_despesa) AS total_despesas,
+    ROUND(SUM(dc.valor_despesa) / NULLIF(COUNT(DISTINCT o.id), 0), 2) AS media_por_operadora
+FROM despesas_consolidadas dc
+INNER JOIN operadoras o ON o.id = dc.operadora_id
+GROUP BY o.uf
+ORDER BY total_despesas DESC
+LIMIT 5;
+```
+
+**Nota:** `NULLIF(..., 0)` previne divisão por zero em UFs sem operadoras (caso teórico após filtragens).
+
+##### Query 3: Operadoras Acima da Média em 2+ Trimestres
+
+**Requisito:** Contar operadoras que tiveram despesas acima da média geral em pelo menos 2 dos 3 trimestres.
+
+**Trade-off: Abordagem de Implementação**
+
+| Estratégia | Prós | Contras |
+|------------|------|---------|
+| Subqueries com agregação (CTEs) | Legível, fácil de debugar | Pode ser menos performático em datasets grandes |
+| Window functions | Elegante, menos código | Menos intuitivo para manutenção |
+| Múltiplos JOINs | Explícito | Verboso, difícil de escalar |
+
+**Escolha:** Subqueries com CTEs (Common Table Expressions).
+
+**Justificativa:**
+1. **Legibilidade:** Cada CTE tem um propósito claro (`media_geral`, `trimestres_acima_media`), facilitando entendimento
+2. **Manutenibilidade:** Alterar a lógica (ex: mudar de 2 para 3 trimestres) requer mudança em um único lugar
+3. **Performance:** Para o volume esperado (~4.500 registros), a diferença é imperceptível. Em cenários com milhões de registros, window functions seriam preferíveis
+4. **Debugabilidade:** Pode-se executar cada CTE separadamente para verificar resultados intermediários
+
+**Implementação:**
+
+```sql
+WITH media_geral AS (
+    -- Calcula média única de todas as despesas
+    SELECT AVG(valor_despesa) AS media
+    FROM despesas_consolidadas
+),
+trimestres_acima_media AS (
+    -- Conta em quantos trimestres cada operadora ficou acima da média
+    SELECT dc.operadora_id, COUNT(*) AS trimestres_acima
+    FROM despesas_consolidadas dc
+    CROSS JOIN media_geral mg
+    WHERE dc.valor_despesa > mg.media
+    GROUP BY dc.operadora_id
+)
+SELECT COUNT(*) AS operadoras_acima_media_2_trimestres
+FROM trimestres_acima_media
+WHERE trimestres_acima >= 2;
+```
+
+**Versão alternativa incluída:** O arquivo `queries.sql` também contém uma versão que lista as operadoras (com CNPJ e razão social) ao invés de apenas contar, útil para análise detalhada.
 
 ---
 
