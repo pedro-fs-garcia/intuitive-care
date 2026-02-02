@@ -47,6 +47,7 @@ class DespesasConsolidator:
         df_despesas = df[
             (df["CD_CONTA_CONTABIL"].str.startswith("4"))
             & (df["DESCRICAO"] == "DESPESAS COM EVENTOS / SINISTROS")
+            & (df["CD_CONTA_CONTABIL"].str.len() == 9)
         ].copy()
 
         df_despesas["Ano"] = df_despesas["DATA"].dt.year

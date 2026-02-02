@@ -54,7 +54,27 @@ class DespesasAggregator:
         return df_merge
 
     def aggregate(self, df: pd.DataFrame) -> pd.DataFrame:
-        return df
+        """Agrupa dados por operadora e UF com métricas estatísticas."""
+        df = df.sort_values(["CNPJ", "Ano", "Trimestre"])
+        df["DespesaTrimestre"] = (
+            df.groupby(["CNPJ", "Ano"])["ValorDespesas"].diff().fillna(df["ValorDespesas"])
+        )
+        df_agg = (
+            df.groupby(["CNPJ", "RegistroANS", "RazaoSocial", "Modalidade", "UF"])
+            .agg(
+                TotalDespesas=("DespesaTrimestre", "sum"),
+                MediaTrimestral=("DespesaTrimestre", "mean"),
+                DesvioPadrao=("DespesaTrimestre", "std"),
+                QtdTrimestres=("ValorDespesas", "count"),
+            )
+            .reset_index()
+        )
+        df_agg["DesvioPadrao"] = df_agg["DesvioPadrao"].fillna(0)
+        df_agg[["TotalDespesas", "MediaTrimestral", "DesvioPadrao"]] = df_agg[
+            ["TotalDespesas", "MediaTrimestral", "DesvioPadrao"]
+        ].round(2)
+        df_agg = df_agg.sort_values("TotalDespesas", ascending=False)
+        return df_agg
 
     def run(self) -> pd.DataFrame:
         df_consolidate = self._load_consolidate_df()

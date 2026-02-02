@@ -56,5 +56,4 @@ frontend/dist/
 *.pdf
 *.zip
 
-data/trimestres
-data/operadoras
+pyrightconfig.json

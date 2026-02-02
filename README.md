@@ -369,6 +369,59 @@ O cadastro de operadoras pode conter duplicatas por duas razões:
 
 Essa ordem garante que, em caso de conflito, o registro mais recente seja preservado.
 
+#### 4.3. Agregação de Dados (Item 2.3)
+
+**Objetivo:** Agrupar dados por `RazaoSocial` e `UF`, calculando métricas estatísticas.
+
+**Métricas calculadas:**
+
+| Coluna | Descrição |
+|--------|-----------|
+| `TotalDespesas` | Soma de todas as despesas da operadora/UF |
+| `MediaTrimestral` | Média de despesas por trimestre |
+| `DesvioPadrao` | Desvio padrão das despesas (identifica variabilidade) |
+
+**Trade-off: Estratégia de Ordenação**
+
+| Estratégia | Prós | Contras |
+|------------|------|---------|
+| `sort_values()` em memória | Simples, O(n log n), eficiente para N < 1M | Limitado pela RAM |
+| Ordenação externa (chunks) | Escala para bilhões de registros | Complexidade alta, I/O intensivo |
+| Heap/Top-K | Eficiente se só precisar dos maiores | Não retorna lista completa ordenada |
+
+**Escolha:** Ordenação em memória via `pandas.sort_values()`.
+
+**Justificativa:** O dataset agregado terá no máximo ~1.5k operadoras × 27 UFs = ~40k linhas. Ordenar 40k registros em memória leva <100ms. Ordenação externa só faria sentido acima de milhões de registros.
+
+**Análise Crítica: Tratamento de Dados Cumulativos (YTD)**
+
+**Problema identificado:** Os dados da ANS são Year-to-Date (acumulados no ano). A soma direta dos trimestres causaria duplicidade de valores — por exemplo, o valor do T3 já inclui T1 e T2.
+
+**Solução:** Implementei uma lógica de desacumulação. Para trimestres do mesmo ano fiscal, o valor real do período é calculado como a diferença entre o saldo atual e o anterior. Quando há mudança de ano, o saldo é tratado como inicial.
+
+```python
+df = df.sort_values(["CNPJ", "Ano", "Trimestre"])
+df["DespesaTrimestre"] = (
+    df.groupby(["CNPJ", "Ano"])["ValorDespesas"]
+    .diff()
+    .fillna(df["ValorDespesas"])
+)
+```
+
+**Justificativa:** Essa abordagem é a única que reflete a realidade financeira da operadora e permite o cálculo correto da Média e do Desvio Padrão solicitados no item 2.3. Sem isso, as operadoras maiores pareceriam ter um crescimento exponencial inexistente ao longo do ano.
+
+**Tratamento de Desvio Padrão com N=1:**
+
+Quando uma operadora/UF possui dados de apenas 1 trimestre, o desvio padrão é indefinido (NaN). Optei por preencher com 0, indicando ausência de variação observável.
+
+**Justificativa Técnica: Estrutura do CSV `despesas_agregadas.csv`**
+
+**Decisão:** Mantive as colunas `CNPJ`, `RegistroANS` e `Modalidade` no arquivo final de agregação.
+
+**Justificativa:** Embora o item 2.3 foque em `RazaoSocial` e `UF`, a manutenção dessas chaves e atributos evita o reprocessamento de joins nas etapas de Banco de Dados e API, garantindo a integridade referencial entre as tabelas.
+
+**Praticidade:** Segui o princípio de preparar os dados para o consumo final (Dashboard), onde filtros por `Modalidade` e buscas por `CNPJ` são requisitos funcionais esperados.
+
 ---
 
 ## Comandos Disponíveis
