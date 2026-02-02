@@ -58,6 +58,7 @@ class DespesasConsolidator:
             .reset_index()
         )
         df_despesas = df_despesas[["Ano", "Trimestre", "REG_ANS", "VL_SALDO_FINAL"]]
+        df_despesas[["VL_SALDO_FINAL"]] = df_despesas[["VL_SALDO_FINAL"]].round(2)
         print(f"linhas finais: {len(df_despesas)}")
         return df_despesas
 
