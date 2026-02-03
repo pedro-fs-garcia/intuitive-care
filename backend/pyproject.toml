@@ -12,6 +12,11 @@ pandas = "^3.0.0"
 pydantic = "^2.12.5"
 types-requests = "^2.32.4.20260107"
 openpyxl = "^3.1.5"
+fastapi = "^0.128.0"
+uvicorn = "^0.40.0"
+sqlalchemy = "^2.0.46"
+psycopg2-binary = "^2.9.10"
+python-dotenv = "^1.0.1"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -80,8 +85,10 @@ consolidate = "python -m etl.run_ex_1"
 # Parte 2: Transformação e validação
 aggregate = "python -m etl.run_ex_2"
 
+# Banco de dados
+init_db = "python -m database.init_db"
+
+api = "python -m api.api"
+
 # Pipeline completo ETL (Partes 1-2)
 etl = "task download && task consolidate && task transform"
-
-# Parte 4: API
-api = "uvicorn api.main:create_app --factory --reload --host 0.0.0.0 --port 8000"

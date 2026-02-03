@@ -23,6 +23,9 @@ consolidate:
 aggregate:
 	cd backend && poetry run task aggregate
 
+api:
+	cd backend && poetry run task api
+
 
 # LIMPEZA
 clean:
