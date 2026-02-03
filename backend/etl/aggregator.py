@@ -31,7 +31,7 @@ class DespesasAggregator:
         df_operadoras = df_operadoras.rename(columns={"REG_ANS": "RegistroANS"})
         df_operadoras = df_operadoras.drop_duplicates(subset=["RegistroANS"], keep="first")
         df_operadoras = df_operadoras.drop_duplicates(subset=["CNPJ"], keep="first")
-        df_operadoras["CNPJ"] = df_operadoras["CNPJ"].astype(str)
+        df_operadoras["CNPJ"] = df_operadoras["CNPJ"].astype(str).str.zfill(14)
 
         df_merge = df_consolidate.merge(
             df_operadoras,

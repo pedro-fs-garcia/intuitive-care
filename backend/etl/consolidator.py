@@ -38,7 +38,7 @@ class DespesasConsolidator:
 
     def load_operadoras_df(self) -> pd.DataFrame:
         df = self.local_storage_client.read(constant_paths.operadoras_dir / "operadoras.csv")
-        df["CNPJ"] = df["CNPJ"].astype(str)
+        df["CNPJ"] = df["CNPJ"].astype(str).str.zfill(14)
         return df
 
     def filter_despesas(self, df: pd.DataFrame) -> pd.DataFrame:

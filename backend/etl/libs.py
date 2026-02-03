@@ -21,6 +21,7 @@ def normalize_cnpj(cnpj: str | None) -> str | None:
     dv_1_weights = (5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2)
     dv_2_weights = (6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2)
     cnpj = re.sub(r"[^0-9]", "", cnpj)
+    cnpj = cnpj.zfill(14)
 
     if len(cnpj) != 14 or len(set(cnpj)) == 1:
         return None
