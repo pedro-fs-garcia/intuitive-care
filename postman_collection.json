@@ -1,0 +1,322 @@
+{
+  "info": {
+    "name": "IntuitiveCare API - Teste Pedro Garcia",
+    "_postman_id": "intuitive-care-api",
+    "description": "Coleção de endpoints da API de Operadoras de Planos de Saúde",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "GET / - Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Verifica se a API está funcionando"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/",
+                  "host": ["{{baseUrl}}"],
+                  "path": [""]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"name\": \"Teste Pedro Garcia\",\n  \"status\": \"ok\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Operadoras",
+      "item": [
+        {
+          "name": "GET /api/operadoras - Listar operadoras",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/operadoras?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "operadoras"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Número da página (mínimo 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Itens por página (1-100)"
+                }
+              ]
+            },
+            "description": "Lista todas as operadoras com paginação"
+          },
+          "response": [
+            {
+              "name": "200 OK - Lista paginada",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/operadoras?page=1&limit=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "operadoras"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": [\n    {\n      \"cnpj\": \"12345678000190\",\n      \"razao_social\": \"OPERADORA EXEMPLO LTDA\",\n      \"registro_ans\": \"123456\",\n      \"modalidade\": \"Medicina de Grupo\",\n      \"uf\": \"SP\"\n    }\n  ],\n  \"total\": 150,\n  \"page\": 1,\n  \"limit\": 10,\n  \"total_pages\": 15\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /api/operadoras - Buscar por razão social",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/operadoras?page=1&limit=10&search=unimed",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "operadoras"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "search",
+                  "value": "unimed",
+                  "description": "Busca por razão social ou CNPJ"
+                }
+              ]
+            },
+            "description": "Busca operadoras por razão social ou CNPJ"
+          },
+          "response": [
+            {
+              "name": "200 OK - Resultados filtrados",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/operadoras?search=unimed",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "operadoras"],
+                  "query": [
+                    { "key": "search", "value": "unimed" }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": [\n    {\n      \"cnpj\": \"12345678000190\",\n      \"razao_social\": \"UNIMED EXEMPLO\",\n      \"registro_ans\": \"123456\",\n      \"modalidade\": \"Cooperativa Médica\",\n      \"uf\": \"MG\"\n    }\n  ],\n  \"total\": 5,\n  \"page\": 1,\n  \"limit\": 10,\n  \"total_pages\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /api/operadoras/{cnpj} - Detalhes da operadora",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/operadoras/12345678000190",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "operadoras", "12345678000190"]
+            },
+            "description": "Retorna detalhes de uma operadora específica pelo CNPJ"
+          },
+          "response": [
+            {
+              "name": "200 OK - Operadora encontrada",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/operadoras/12345678000190",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "operadoras", "12345678000190"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"cnpj\": \"12345678000190\",\n  \"razao_social\": \"OPERADORA EXEMPLO LTDA\",\n  \"registro_ans\": \"123456\",\n  \"modalidade\": \"Medicina de Grupo\",\n  \"uf\": \"SP\"\n}"
+            },
+            {
+              "name": "404 Not Found - Operadora não encontrada",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/operadoras/00000000000000",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "operadoras", "00000000000000"]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"detail\": \"Operadora com CNPJ 00000000000000 não encontrada\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /api/operadoras/{cnpj}/despesas - Histórico de despesas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/operadoras/12345678000190/despesas?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "operadoras", "12345678000190", "despesas"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Número da página"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Itens por página"
+                }
+              ]
+            },
+            "description": "Retorna o histórico de despesas de uma operadora específica"
+          },
+          "response": [
+            {
+              "name": "200 OK - Histórico de despesas",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/operadoras/12345678000190/despesas?page=1&limit=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "operadoras", "12345678000190", "despesas"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"data\": [\n    {\n      \"trimestre\": 3,\n      \"ano\": 2025,\n      \"valor_despesa\": 1500000.50\n    },\n    {\n      \"trimestre\": 2,\n      \"ano\": 2025,\n      \"valor_despesa\": 1400000.00\n    },\n    {\n      \"trimestre\": 1,\n      \"ano\": 2025,\n      \"valor_despesa\": 1350000.75\n    }\n  ],\n  \"operadora\": {\n    \"cnpj\": \"12345678000190\",\n    \"razao_social\": \"OPERADORA EXEMPLO LTDA\"\n  },\n  \"total\": 3,\n  \"page\": 1,\n  \"limit\": 10,\n  \"total_pages\": 1\n}"
+            },
+            {
+              "name": "404 Not Found - Operadora não encontrada",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/operadoras/00000000000000/despesas",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "operadoras", "00000000000000", "despesas"]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"detail\": \"Operadora com CNPJ 00000000000000 não encontrada\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Estatísticas",
+      "item": [
+        {
+          "name": "GET /api/estatisticas - Estatísticas agregadas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/estatisticas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "estatisticas"]
+            },
+            "description": "Retorna estatísticas agregadas: total de despesas, média, top 5 operadoras e distribuição por UF"
+          },
+          "response": [
+            {
+              "name": "200 OK - Estatísticas completas",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/estatisticas",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "estatisticas"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"resumo\": {\n    \"total_despesas\": 5000000000.00,\n    \"media_despesas\": 1500000.50,\n    \"total_registros\": 3500\n  },\n  \"top_5_operadoras\": [\n    {\n      \"cnpj\": \"12345678000190\",\n      \"razao_social\": \"OPERADORA TOP 1\",\n      \"uf\": \"SP\",\n      \"total_despesas\": 500000000.00\n    },\n    {\n      \"cnpj\": \"98765432000199\",\n      \"razao_social\": \"OPERADORA TOP 2\",\n      \"uf\": \"RJ\",\n      \"total_despesas\": 400000000.00\n    }\n  ],\n  \"despesas_por_uf\": [\n    {\n      \"uf\": \"SP\",\n      \"total\": 2000000000.00,\n      \"media_trimestral\": 500000000.00,\n      \"qtd_operadoras\": 150\n    },\n    {\n      \"uf\": \"RJ\",\n      \"total\": 1000000000.00,\n      \"media_trimestral\": 250000000.00,\n      \"qtd_operadoras\": 80\n    },\n    {\n      \"uf\": \"MG\",\n      \"total\": 800000000.00,\n      \"media_trimestral\": 200000000.00,\n      \"qtd_operadoras\": 60\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /api/estatisticas-complementares - Queries analíticas (Item 3.4)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/estatisticas-complementares",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "estatisticas-complementares"]
+            },
+            "description": "Retorna as 3 queries analíticas do Item 3.4 do teste:\n- Query 1: Top 5 operadoras com maior crescimento percentual\n- Query 2: Distribuição de despesas por UF (top 5)\n- Query 3: Operadoras acima da média em 2+ trimestres"
+          },
+          "response": [
+            {
+              "name": "200 OK - Estatísticas analíticas",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/estatisticas-complementares",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "estatisticas-complementares"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"top_5_crescimento\": [\n    {\n      \"cnpj\": \"12345678000190\",\n      \"razao_social\": \"OPERADORA EXEMPLO\",\n      \"despesa_inicial\": 1000000.00,\n      \"despesa_final\": 1500000.00,\n      \"crescimento_percentual\": 50.00\n    }\n  ],\n  \"top_5_uf\": [\n    {\n      \"uf\": \"SP\",\n      \"qtd_operadoras\": 150,\n      \"total_despesas\": 2000000000.00,\n      \"media_por_registro\": 500000.00,\n      \"media_por_operadora\": 13333333.33\n    }\n  ],\n  \"operadoras_acima_media\": {\n    \"total\": 45,\n    \"media_geral_referencia\": 1500000.50,\n    \"criterio\": \"Despesas acima da média geral em pelo menos 2 dos 3 trimestres\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

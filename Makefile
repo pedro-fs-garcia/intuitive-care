@@ -17,15 +17,32 @@ typecheck:
 	cd backend && poetry run mypy .
 
 # ETL (Partes 1-2)
+download:
+	cd backend && poetry run task consolidate
+
 consolidate:
 	cd backend && poetry run task consolidate
+
+transform:
+	cd backend && poetry run task aggregate
 
 aggregate:
 	cd backend && poetry run task aggregate
 
+etl: download transform
+
 api:
 	cd backend && poetry run task api
 
+# Frontend
+frontend-install:
+	cd frontend && npm install
+
+frontend-dev:
+	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run build
 
 # LIMPEZA
 clean:
