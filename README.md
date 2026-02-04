@@ -39,6 +39,24 @@ As 4 partes do teste foram implementadas conforme especificação:
 
 > **Nota:** Os scripts SQL foram desenvolvidos e testados em PostgreSQL 15, mas seguem padrão ANSI SQL compatível com PostgreSQL >10.0 e MySQL 8.0 conforme solicitado no enunciado.
 
+### Configuração do Banco de Dados
+
+Copie o arquivo de exemplo e configure suas credenciais:
+
+```bash
+cp .env.example .env
+```
+
+Edite o `.env` com suas configurações do PostgreSQL:
+
+```env
+PG_HOST=localhost
+PG_PORT=5432
+PG_USER=postgres
+PG_PASSWORD=suasenha
+PG_DATABASE=intuitive_care
+```
+
 ---
 
 ## Instalação e Execução
