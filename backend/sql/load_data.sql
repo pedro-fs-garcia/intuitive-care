@@ -1,6 +1,20 @@
-\set path_operadoras '/caminho/para/operadoras.csv'
-\set path_consolidado '/caminho/para/consolidado_despesas.csv'
-\set path_agregado '/caminho/para/despesas_agregadas.csv'
+-- IMPORTAÇÃO DE DADOS (Item 3.3)
+--
+-- COMO EXECUTAR:
+--
+-- Opção 1 - Via psql (recomendado):
+--   psql -d <database> -f load_data.sql
+--   (edite os caminhos abaixo antes de executar)
+--
+-- Opção 2 - Via pgAdmin4:
+--   Substitua as variáveis :'path_*' pelos caminhos absolutos dos arquivos.
+--   Exemplo: FROM :'path_operadoras'  →  FROM '/home/user/output/operadoras.csv'
+
+
+-- Ajuste os caminhos para os arquivos CSV gerados nas Partes 1 e 2
+\set path_operadoras '../../data/operadoras/operadoras.csv'
+\set path_consolidado '../../data/consolidado/consolidado_despesas.csv'
+\set path_agregado '../../output/despesas_agregadas.csv'
 
 
 -- ANSApiClient.download_operadoras_ativas
