@@ -1,50 +1,61 @@
-.PHONY: install lint format typecheck clean \
-        etl download consolidate transform api \
-        frontend-install frontend-dev frontend-build
+.PHONY: install check clean parte-1 parte-2 etl api frontend parte-4
 
-# SETUP
-install:
-	cd backend && poetry install
+help:
+	@echo "Comandos disponíveis:"
+	@echo "  make install  - Instala dependências (back e front)"
+	@echo "  make etl      - Executa a consolidação e agregação de dados"
+	@echo "  make parte-4  - Roda API e Frontend simultaneamente"
+	@echo "  make check    - Roda Lint, Format e Typecheck"
+
+
+setup:
+	@echo "Instalando dependências..."
+	@make install
+	@echo "Executando pipeline de dados (ETL)..."
+	@make etl
+	@echo "Tudo pronto! Iniciando backend e frontend"
+
+all:
+	@make setup
+	@make parte-4
 
 # Qualidade de código
-lint:
+check:
 	cd backend && poetry run ruff check . --fix
-
-format:
 	cd backend && poetry run ruff format .
-
-typecheck:
 	cd backend && poetry run mypy .
 
-# ETL (Partes 1-2)
-download:
-	cd backend && poetry run task consolidate
-
-consolidate:
-	cd backend && poetry run task consolidate
-
-transform:
-	cd backend && poetry run task aggregate
-
-aggregate:
-	cd backend && poetry run task aggregate
-
-etl: download transform
-
-api:
-	cd backend && poetry run task api
-
-# Frontend
+# instala dependencias
 frontend-install:
 	cd frontend && npm install
 
-frontend-dev:
+backend-install:
+	cd backend && poetry install
+
+install: frontend-install backend-install
+
+
+# ETL (Partes 1 e 2)
+parte-1:
+	cd backend && poetry run task consolidate
+
+parte-2:
+	cd backend && poetry run task aggregate
+
+etl: parte-1 parte-2
+
+# API e frontend (parte 4)
+api:
+	cd backend && poetry run task api
+
+frontend:
 	cd frontend && npm run dev
 
-frontend-build:
-	cd frontend && npm run build
+parte-4:
+	@echo "Subindo serviços... (Use Ctrl+C para parar)"
+	(make api) & (make frontend)
 
-# LIMPEZA
+
 clean:
-	rm -rf backend/.mypy_cache backend/.ruff_cache
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	-rm -rf backend/.mypy_cache backend/.ruff_cache
+	-find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true

@@ -2,7 +2,7 @@
 
 Resolução do teste técnico para estágio na Intuitive Care.
 
-**Candidato:** Pedro Garcia
+**Candidato:** Pedro Garcia  
 **E-mail:** pedrofsgarcia.pro@gmail.com
 
 ---
@@ -10,23 +10,16 @@ Resolução do teste técnico para estágio na Intuitive Care.
 ## Sumário
 
 - [Visão Geral](#visão-geral)
-- [Estrutura do Projeto](#estrutura-do-projeto)
 - [Requisitos](#requisitos)
 - [Instalação e Execução](#instalação-e-execução)
+- [Estrutura do Projeto](#estrutura-do-projeto)
 - [Decisões Técnicas e Trade-offs](#decisões-técnicas-e-trade-offs)
-  - [1. Linguagem e Ferramentas](#1-linguagem-e-ferramentas)
-  - [2. Estrutura do Projeto](#2-estrutura-do-projeto)
-  - [3. Parte 1 - Integração com API Pública (ANS)](#3-parte-1---integração-com-api-pública-ans)
-  - [4. Parte 2 - Transformação e Validação de Dados](#4-parte-2---transformação-e-validação-de-dados)
-  - [5. Parte 3 - Banco de Dados e Análise (SQL)](#5-parte-3---banco-de-dados-e-análise-sql)
-  - [6. Parte 4 - API REST e Interface Web](#6-parte-4---api-rest-e-interface-web)
-- [Comandos Disponíveis](#comandos-disponíveis)
 
 ---
 
 ## Visão Geral
 
-Este projeto implementa as 4 partes do teste:
+As 4 partes do teste foram implementadas conforme especificação:
 
 | Parte | Descrição                          | Status      |
 | ----- | ---------------------------------- | ----------- |
@@ -34,6 +27,121 @@ Este projeto implementa as 4 partes do teste:
 | 2     | Transformação e Validação de Dados | ✅ Concluído |
 | 3     | Banco de Dados e Análise (SQL)     | ✅ Concluído |
 | 4     | API REST + Interface Web (Vue.js)  | ✅ Concluído |
+
+---
+
+## Requisitos
+
+- Python 3.12+
+- Poetry 1.8+
+- Node.js 20+ (para frontend)
+- PostgreSQL 15+ (para Parte 3)
+
+---
+
+## Instalação e Execução
+
+### Início Rápido
+
+Para instalar tudo, processar os dados e subir a aplicação de uma vez:
+
+```bash
+make all
+```
+
+Use `Ctrl + C` para encerrar os serviços quando terminar.
+
+---
+
+### Avaliação Parte a Parte
+
+Antes de executar qualquer parte, instale as dependências:
+
+```bash
+make install
+```
+
+#### Parte 1 — Integração com API Pública (ANS)
+
+```bash
+make parte-1
+```
+
+Baixa os arquivos de Demonstrações Contábeis da ANS, filtra despesas com eventos/sinistros e consolida em um único CSV.
+
+**Arquivo gerado:** `output/consolidado_despesas.zip`  
+**Colunas:** `CNPJ`, `RazaoSocial`, `Trimestre`, `Ano`, `ValorDespesas`
+
+#### Parte 2 — Transformação e Validação de Dados
+
+```bash
+make parte-2
+```
+
+Valida CNPJs, enriquece os dados com informações cadastrais das operadoras e gera agregações por operadora/UF.
+
+**Arquivo gerado:** `output/despesas_agregadas.csv`  
+**Colunas:** `CNPJ`, `RegistroANS`, `RazaoSocial`, `Modalidade`, `UF`, `TotalDespesas`, `MediaTrimestral`, `DesvioPadrao`, `QtdTrimestres`
+
+#### Parte 3 — Banco de Dados e Análise (SQL)
+
+Não há comando `make` para esta parte. Os scripts SQL estão em `backend/sql/` para leitura e avaliação:
+
+| Arquivo         | Conteúdo                                       |
+| --------------- | ---------------------------------------------- |
+| db_schema.sql   | DDL — criação das tabelas, índices e constraints |
+| load_data.sql   | Importação dos CSVs para o banco               |
+| queries.sql     | Queries analíticas (itens 3.4.1, 3.4.2, 3.4.3) |
+
+<details>
+<summary>Execução opcional em PostgreSQL</summary>
+
+**Via psql (recomendado):**
+
+```bash
+psql -d <database> -f backend/sql/db_schema.sql   # Criar tabelas
+psql -d <database> -f backend/sql/load_data.sql   # Importar dados
+psql -d <database> -f backend/sql/queries.sql     # Executar queries
+```
+
+Os caminhos dos CSVs estão configurados como variáveis `\set` no início de `load_data.sql`. Ajuste se necessário para caminhos absolutos.
+
+**Via pgAdmin4:**
+
+Substitua as variáveis `:'path_*'` pelos caminhos absolutos. Exemplo:
+```sql
+-- De:  FROM :'path_operadoras'
+-- Para: FROM '/caminho/absoluto/data/operadoras/operadoras.csv'
+```
+
+</details>
+
+#### Parte 4 — API REST + Interface Web (Vue.js)
+
+```bash
+make parte-4
+```
+
+Sobe o servidor FastAPI e o frontend Vue.js simultaneamente.
+
+| Serviço           | URL                        |
+| ----------------- | -------------------------- |
+| Frontend          | http://localhost:5173      |
+| Backend           | http://localhost:8000      |
+| Documentação API  | http://localhost:8000/docs |
+
+A coleção Postman está em `postman_collection.json` na raiz do projeto.
+
+---
+
+### Arquivos Exigidos
+
+| Parte | Arquivo                  | Localização                       |
+| ----- | ------------------------ | --------------------------------- |
+| 1     | consolidado_despesas.zip | `output/consolidado_despesas.zip` |
+| 2     | despesas_agregadas.csv   | `output/despesas_agregadas.csv`   |
+| 3     | Scripts SQL              | `backend/sql/`                    |
+| 4     | Coleção Postman          | `postman_collection.json`         |
 
 ---
 
@@ -68,98 +176,6 @@ Este projeto implementa as 4 partes do teste:
 
 ---
 
-## Requisitos
-
-- Python 3.12+
-- Poetry 1.8+
-- Node.js 20+ (para frontend)
-- PostgreSQL 15+ (para Parte 3)
-
----
-
-## Instalação e Execução
-
-### Setup Inicial
-
-```bash
-# Clonar repositório
-git clone https://github.com/pedro-fs-garcia/intuitive-care.git
-cd intuitive-care
-
-# Instalar dependências do backend
-make install
-```
-
-### Parte 1 - Integração com API ANS
-
-```bash
-# Baixar dados das Demonstrações Contábeis (últimos 3 trimestres)
-make download
-
-# Consolidar dados em CSV único
-make consolidate
-```
-
-**Saída:** `output/consolidado_despesas.zip`
-
-### Parte 2 - Transformação e Validação
-
-```bash
-# Validar, enriquecer e agregar dados
-make transform
-```
-
-**Saída:** `output/despesas_agregadas.csv`
-
-### Parte 3 - Banco de Dados
-
-```bash
-# Scripts SQL estão em backend/sql/
-# Execute na ordem com psql:
-
-# 1. Criar estrutura das tabelas
-psql -d <database> -f backend/sql/db_schema.sql
-
-# 2. Importar dados dos CSVs (ajuste os paths no início do arquivo)
-psql -d <database> -f backend/sql/load_data.sql
-
-# 3. Executar queries analíticas
-psql -d <database> -f backend/sql/queries.sql
-```
-
-**Nota:** Antes de executar `load_data.sql`, edite as variáveis no início do arquivo para apontar para os caminhos corretos dos CSVs:
-
-```sql
-\set path_operadoras '/caminho/para/operadoras.csv'
-\set path_consolidado '/caminho/para/consolidado_despesas.csv'
-\set path_agregado '/caminho/para/despesas_agregadas.csv'
-```
-
-### Parte 4 - API e Frontend
-
-```bash
-# Terminal 1: Iniciar API
-make api
-
-# Terminal 2: Iniciar frontend
-make frontend-install  # apenas na primeira vez
-make frontend-dev
-```
-
-**API:** http://localhost:8000
-**Frontend:** http://localhost:5173
-**Documentação API:** http://localhost:8000/docs
-
-**Coleção Postman:** Disponível em `postman_collection.json` na raiz do projeto. Importe no Postman para testar todas as rotas da API.
-
-### Pipeline Completo (Partes 1-2)
-
-```bash
-make etl  # Executa download + consolidate + transform
-```
-
----
-
 ## Decisões Técnicas e Trade-offs
 
 ### 1. Linguagem e Ferramentas
@@ -169,7 +185,6 @@ make etl  # Executa download + consolidate + transform
 | Linguagem           | **Python 3.12**          | Melhor ecossistema para ETL e análise de dados (pandas). Tipagem moderna com generics nativos. |
 | Gerenciador de deps | **Poetry**               | Lock file determinístico, separação clara entre deps de produção e desenvolvimento.            |
 | Qualidade de código | **Ruff + MyPy (strict)** | Ruff é 10-100x mais rápido que flake8/black combinados. MyPy strict garante type safety.       |
-| Segurança           | **Bandit**               | Análise estática para vulnerabilidades comuns (SQL injection, etc.).                           |
 
 ### 2. Estrutura do Projeto
 
@@ -727,11 +742,11 @@ engine = create_engine(
 )
 ```
 
-| Parâmetro        | Valor | Justificativa                                                        |
-| ---------------- | ----- | -------------------------------------------------------------------- |
-| `pool_size`      | 5     | Suficiente para requests concorrentes típicos de uma API             |
-| `max_overflow`   | 10    | Permite picos de até 15 conexões simultâneas sem rejeitar requests   |
-| `pool_pre_ping`  | True  | Evita erros de "connection closed" em conexões ociosas por muito tempo |
+| Parâmetro       | Valor | Justificativa                                                          |
+| --------------- | ----- | ---------------------------------------------------------------------- |
+| `pool_size`     | 5     | Suficiente para requests concorrentes típicos de uma API               |
+| `max_overflow`  | 10    | Permite picos de até 15 conexões simultâneas sem rejeitar requests     |
+| `pool_pre_ping` | True  | Evita erros de "connection closed" em conexões ociosas por muito tempo |
 
 **Benefício:** Reduz overhead de estabelecer novas conexões TCP a cada request. Em cenários de alta concorrência, a reutilização de conexões pode reduzir latência em até 50ms por request.
 
@@ -760,7 +775,7 @@ engine = create_engine(
 **Escolha:** Busca no servidor (com debounce).
 
 **Justificativa:**
-1. Com ~1.500 operadoras, carregar tudo no cliente seria viável, mas não escalaria
+1. Com ~1.100 operadoras, carregar tudo no cliente seria viável, mas não escalaria
 2. Debounce de 300ms evita requests excessivos durante digitação
 3. Consistência: mesma lógica de busca funciona com 1.500 ou 150.000 registros
 
@@ -788,10 +803,9 @@ function handleSearch(): void {
 **Escolha:** Estado local nos componentes (sem store global).
 
 **Justificativa:**
-1. A aplicação tem apenas 2 páginas (Home e Detalhes)
+1. A aplicação tem apenas 1 página (Home) e 3 componentes principais, sem necessidade de compartilhar estado complexo
 2. Não há estado compartilhado entre componentes não relacionados
 3. Cada componente gerencia seus próprios dados (`operadoras`, `loading`, `error`)
-4. Adicionar Pinia para 2 páginas seria overengineering
 
 ##### 6.2.4. Performance da Tabela
 
@@ -835,12 +849,12 @@ const EstatisticasComplementares = defineAsyncComponent(() => import('../compone
 const OperadoraModal = defineAsyncComponent(() => import('../components/OperadoraModal.vue'))
 ```
 
-| Componente                 | Carregamento | Justificativa                                      |
-| -------------------------- | ------------ | -------------------------------------------------- |
-| `DespesasChart`            | Síncrono     | Primeiro componente visível (above the fold)       |
-| `OperadorasTable`          | Lazy         | Abaixo da dobra, pode aguardar                     |
-| `EstatisticasComplementares` | Lazy       | Seção secundária, carrega enquanto usuário lê      |
-| `OperadoraModal`           | Lazy         | Só renderiza quando usuário clica em uma operadora |
+| Componente                   | Carregamento | Justificativa                                      |
+| ---------------------------- | ------------ | -------------------------------------------------- |
+| `DespesasChart`              | Síncrono     | Primeiro componente visível (above the fold)       |
+| `OperadorasTable`            | Lazy         | Abaixo da dobra, pode aguardar                     |
+| `EstatisticasComplementares` | Lazy         | Seção secundária, carrega enquanto usuário lê      |
+| `OperadoraModal`             | Lazy         | Só renderiza quando usuário clica em uma operadora |
 
 **Benefício:** Reduz o tamanho do bundle inicial, melhorando o Time to First Paint (TFP). O Vite gera chunks separados automaticamente para cada import dinâmico.
 
@@ -864,34 +878,6 @@ const OperadoraModal = defineAsyncComponent(() => import('../components/Operador
 ```
 
 Isso permite que o avaliador execute `make api` e tenha o sistema funcionando sem setup manual de banco.
-
----
-
-## Comandos Disponíveis
-
-```bash
-# Setup
-make install              # Instalar dependências do backend (Poetry)
-make frontend-install     # Instalar dependências do frontend (npm)
-
-# Qualidade de código
-make lint                 # Verificar código (ruff)
-make format               # Formatar código (ruff)
-make typecheck            # Verificar tipos (mypy)
-
-# ETL (Partes 1-2)
-make download             # Baixar dados da ANS
-make consolidate          # Consolidar CSVs
-make aggregate            # Validar, enriquecer e agregar
-make etl                  # Pipeline completo (download + consolidate + aggregate)
-
-# Aplicação (Parte 4)
-make api                  # Iniciar servidor FastAPI (localhost:8000)
-make frontend-dev         # Iniciar dev server Vue (localhost:5173)
-
-# Limpeza
-make clean                # Limpar caches e arquivos temporários
-```
 
 ---
 
